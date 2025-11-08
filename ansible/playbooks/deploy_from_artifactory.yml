@@ -1,0 +1,60 @@
+---
+- name: Deploy Todo App from Artifactory
+  hosts: "{{ target_group | default('webservers') }}"
+  become: yes
+  vars:
+    artifactory_base: "https://princemaxi.jfrog.io/artifactory/php-todo-repo" 
+    app_group: "todo-app"
+    artifact_path: "{{ artifactory_base }}/{{ app_group }}/{{ commit_hash }}/{{ build_number }}.tar.gz"
+    release_dir: /var/www/releases
+    current_link: /var/www/html
+  tasks:
+
+    - name: Ensure release dir exists
+      file:
+        path: "{{ release_dir }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
+    - name: Download artifact from Artifactory
+      get_url:
+        url: "{{ artifact_path }}"
+        dest: "/tmp/{{ app_group }}-{{ build_number }}.tar.gz"
+        timeout: 60
+        url_username: "{{ artifactory_user }}"   # Pass this from Jenkins
+        url_password: "{{ artifactory_apikey }}" # Pass this from Jenkins
+        force_basic_auth: yes
+        validate_certs: no
+      register: download_result
+
+    - name: Fail if artifact not downloaded
+      fail:
+        msg: "Artifact download failed: {{ artifact_path }}"
+      when: download_result is failed
+
+    - name: Extract artifact to release dir
+      unarchive:
+        src: "/tmp/{{ app_group }}-{{ build_number }}.tar.gz"
+        dest: "{{ release_dir }}/{{ build_number }}"
+        remote_src: yes
+
+    - name: Update current symlink
+      file:
+        src: "{{ release_dir }}/{{ build_number }}"
+        dest: "{{ current_link }}"
+        state: link
+        force: yes
+
+    - name: Set permissions
+      file:
+        path: "{{ current_link }}"
+        owner: www-data
+        group: www-data
+        recurse: yes
+
+    - name: Restart nginx
+      systemd:
+        name: nginx
+        state: restarted

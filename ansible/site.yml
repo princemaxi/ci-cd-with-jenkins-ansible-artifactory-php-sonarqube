@@ -1,0 +1,18 @@
+---
+- hosts: jenkins
+  roles:
+    - jenkins
+
+- hosts: sonarqube
+  roles:
+    - sonarqube
+
+- hosts: artifactory
+  roles:
+    - artifactory
+
+- hosts: web
+  roles:
+    - nginx
+    - php
+    - webserver

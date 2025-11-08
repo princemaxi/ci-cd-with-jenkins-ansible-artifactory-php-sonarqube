@@ -1,0 +1,26 @@
+---
+- name: Add JFrog key
+  apt_key:
+    url: https://releases.jfrog.io/artifactory/api/gpg/key/public
+    state: present
+  become: yes
+
+- name: Add Artifactory repo
+  apt_repository:
+    repo: 'deb https://releases.jfrog.io/artifactory/artifactory-debs xenial main'
+    state: present
+  become: yes
+
+- name: Install Artifactory OSS
+  apt:
+    name: jfrog-artifactory-oss
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Start Artifactory
+  service:
+    name: artifactory
+    state: started
+    enabled: yes
+  become: yes

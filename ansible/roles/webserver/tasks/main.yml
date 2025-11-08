@@ -1,0 +1,20 @@
+---
+- name: Create web root
+  file:
+    path: /var/www/html
+    state: directory
+    owner: www-data
+    group: www-data
+  become: yes
+
+- name: Copy application files
+  git:
+    repo: "https://github.com/princemaxi/php-todo.git"
+    dest: /var/www/html/
+  become: yes
+
+- name: Restart Nginx
+  service:
+    name: nginx
+    state: restarted
+  become: yes
