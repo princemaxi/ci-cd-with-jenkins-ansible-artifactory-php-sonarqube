@@ -1,0 +1,144 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'APP_REPO', defaultValue: 'git@github.com:princemaxi/php-todo.git', description: 'App repo to build')
+        string(name: 'APP_BRANCH', defaultValue: 'main', description: 'Branch to build')
+        choice(name: 'inventory', choices: ['ci','dev','pentest'], description: 'Target inventory to use (folder under ansible/inventories)')
+        string(name: 'ansible_tags', defaultValue: '', description: 'Optional Ansible tags (comma separated)')
+    }
+
+    environment {
+        // --- Configuration ---
+        // 1. SonarQube Token (matches your credentials)
+        SONAR_TOKEN = credentials('sonarqube-token')
+        // 2. SonarQube Host (using your private IP)
+        SONAR_HOST = "http://172.31.6.3:9000"
+        // 3. Artifactory Host (using your cloud URL)
+        ARTIFACTORY_HOST = "https://princemaxi.jfrog.io"
+    }
+
+    stages {
+        stage('Checkout Infra (Ansible)') {
+            steps {
+                // Checks out the Ansible configuration from *this* repository
+                checkout scm
+            }
+        }
+
+        stage('Checkout App (PHP)') {
+            steps {
+                dir('todo-app') {
+                    // Checks out the PHP app using your 'github-token'
+                    git credentialsId: 'github-token', url: params.APP_REPO, branch: params.APP_BRANCH
+                    script {
+                        // Grabs the Git commit ID to use as a version
+                        env.GIT_COMMIT = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+                    }
+                }
+            }
+        }
+
+        stage('Build / Package') {
+            steps {
+                dir('todo-app') {
+                    sh '''
+                        set -e
+                        rm -rf dist || true
+                        mkdir -p dist
+                        cp -r src/* dist/
+                        # Creates the tarball for upload
+                        tar -czf ../todo-app-${GIT_COMMIT}-${BUILD_NUMBER}.tar.gz -C dist .
+                    '''
+                }
+                // Saves the artifact in Jenkins for review
+                archiveArtifacts artifacts: "todo-app-${GIT_COMMIT}-${BUILD_NUMBER}.tar.gz", fingerprint: true
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            // Only run on important branches
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'develop'
+                    branch pattern: '^release.*', comparator: 'REGEXP'
+                    branch pattern: '^hotfix.*', comparator: 'REGEXP'
+                }
+            }
+            steps {
+                withEnv(["SONAR_LOGIN=${SONAR_TOKEN}", "SONAR_HOST=${SONAR_HOST}"]) {
+                    dir('todo-app') {
+                        sh """
+                            # This assumes 'sonar-scanner' is installed on the Jenkins agent
+                            sonar-scanner \
+                              -Dsonar.projectKey=php-todo \
+                              -Dsonar.sources=src \
+                              -Dsonar.host.url=${SONAR_HOST} \
+                              -Dsonar.login=${SONAR_LOGIN}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'develop'
+                }
+            }
+            steps {
+                timeout(time: 3, unit: 'MINUTES') {
+                    // Pauses the pipeline and waits for SonarQube to give a "Pass"
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Upload artifact to Artifactory') {
+            steps {
+                // Securely loads your 'artifactory-token'
+                // This assumes it's a "Username with password" credential type
+                withCredentials([usernamePassword(credentialsId: 'artifactory-token', usernameVariable: 'ART_USER', passwordVariable: 'ART_PASS')]) {
+                    sh """
+                        # Sets the path using your correct repository 'php-todo-repo'
+                        ART_PATH="php-todo-repo/todo-app/${GIT_COMMIT}/${BUILD_NUMBER}/todo-app-${GIT_COMMIT}-${BUILD_NUMBER}.tar.gz"
+                        
+                        # Uploads the file using your cloud URL and credentials
+                        curl -u ${ART_USER}:${ART_PASS} -T todo-app-${GIT_COMMIT}-${BUILD_NUMBER}.tar.gz "${ARTIFACTORY_HOST}/artifactory/${ART_PATH}"
+                        
+                        echo "ARTIFACT_PATH=${ARTIFACTORY_HOST}/artifactory/${ART_PATH}" > artifact-info.txt
+                    """
+                }
+                archiveArtifacts artifacts: 'artifact-info.txt'
+            }
+        }
+
+        stage('Deploy via Ansible') {
+            steps {
+                // Securely loads your 'ansible-ssh' private key
+                withCredentials([sshUserPrivateKey(credentialsId: 'ansible-ssh', keyFileVariable: 'ANSIBLE_KEY')]) {
+                    sh """
+                        export ANSIBLE_CONFIG=${WORKSPACE}/ansible/ansible.cfg
+                        
+                        # This command runs your Ansible playbook
+                        ansible-playbook -i ansible/inventories/${inventory}/hosts.ini ansible/playbooks/deploy_from_artifactory.yml \
+                          --private-key=${ANSIBLE_KEY} \
+                          --extra-vars "build_number=${BUILD_NUMBER} commit_hash=${GIT_COMMIT} target_group=todo" \
+                          --extra-vars "artifactory_base=${ARTIFACTORY_HOST}/artifactory/php-todo-repo"
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        // This will always run, whether the pipeline succeeds or fails
+        always {
+            // Cleans up the workspace for the next build
+            cleanWs()
+        }
+    }
+}
