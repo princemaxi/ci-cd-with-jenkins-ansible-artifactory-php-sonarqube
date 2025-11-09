@@ -71,21 +71,16 @@ pipeline {
             }
             steps {
                 // --- THIS IS THE FIX ---
-                // This wrapper finds the tool named 'SonarQubeScanner'
-                // and adds its 'bin' directory to the PATH.
-                withSonarQubeEnv('SonarQubeScanner') {
-                    dir('todo-app') {
-                        // 1. Use single-quotes '...' for security.
-                        // 2. Use shell variables ($VARNAME) for the scanner.
-                        // 3. Removed the unnecessary nested 'withEnv' wrapper.
-                        sh '''
-                            sonar-scanner \
-                              -Dsonar.projectKey=php-todo \
-                              -Dsonar.sources=. \
-                              -Dsonar.host.url=$SONAR_HOST \
-                              -Dsonar.login=$SONAR_TOKEN
-                        '''
-                    }
+                // We've removed the broken 'withSonarQubeEnv' wrapper
+                dir('todo-app') {
+                    sh '''
+                        # We are now calling the scanner by its full, manual path
+                        /opt/sonar-scanner/bin/sonar-scanner \
+                          -Dsonar.projectKey=php-todo \
+                          -Dsonar.sources=. \
+                          -Dsonar.host.url=$SONAR_HOST \
+                          -Dsonar.login=$SONAR_TOKEN
+                    '''
                 }
             }
         }
