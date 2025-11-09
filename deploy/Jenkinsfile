@@ -70,7 +70,7 @@ pipeline {
             // This tells Jenkins to add the "SonarQubeScanner" tool
             // (which you configured to install automatically) to the PATH.
             tools {
-                tool 'SonarQubeScanner'
+                hudson.plugins.sonar.SonarRunnerInstallation 'SonarQubeScanner'
             }
 
             steps {
