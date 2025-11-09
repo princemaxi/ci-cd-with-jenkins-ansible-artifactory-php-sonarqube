@@ -13,7 +13,7 @@ pipeline {
         // --- Configuration ---
         // 1. SonarQube Token (matches your credentials)
         SONAR_TOKEN = credentials('sonarqube-token')
-        // 2. SonarQube Host (using your private IP)
+        // 2. SonarQube Host (FIX: Using the Private IP 172.31.6.3 as confirmed)
         SONAR_HOST = "http://172.31.6.3:9000"
         // 3. Artifactory Host (using your cloud URL)
         ARTIFACTORY_HOST = "https://princemaxi.jfrog.io"
@@ -60,27 +60,32 @@ pipeline {
             }
         }
 
+        // 🟢 CORRECTED STAGE: Uses withSonarQubeEnv
         stage('SonarQube Analysis') {
             when {
                 anyOf {
                     branch 'main'
                     branch 'develop'
-                    branch pattern: '^release.*', comparator: 'REGEXP'
-                    branch pattern: '^hotfix.*', comparator: 'REGEXP'
                 }
             }
             steps {
-                // --- THIS IS THE FIX ---
-                // We've removed the broken 'withSonarQubeEnv' wrapper
                 dir('todo-app') {
-                    sh '''
-                        # We are now calling the scanner by its full, manual path
-                        /opt/sonar-scanner/bin/sonar-scanner \
-                          -Dsonar.projectKey=php-todo \
-                          -Dsonar.sources=. \
-                          -Dsonar.host.url=$SONAR_HOST \
-                          -Dsonar.login=$SONAR_TOKEN
-                    '''
+                    // This wrapper is MANDATORY. It registers the analysis result with Jenkins
+                    // and makes the 'sonar-scanner' command available on the PATH.
+                    withSonarQubeEnv(installationName: 'SonarQubeScanner') { 
+                        sh '''
+                            echo "--- Running SonarQube Analysis via withSonarQubeEnv wrapper ---"
+                            
+                            # The 'sonar-scanner' command is now available without the /opt/ path.
+                            # The wrapper automatically injects the SONAR_HOST and often the SONAR_TOKEN,
+                            # but we leave them as D-properties for explicit control.
+                            sonar-scanner \
+                              -Dsonar.projectKey=php-todo \
+                              -Dsonar.sources=. \
+                              -Dsonar.host.url=$SONAR_HOST \
+                              -Dsonar.login=$SONAR_TOKEN
+                        '''
+                    }
                 }
             }
         }
@@ -94,7 +99,7 @@ pipeline {
             }
             steps {
                 timeout(time: 3, unit: 'MINUTES') {
-                    // Pauses the pipeline and waits for SonarQube to give a "Pass"
+                    // This step will now find the previous analysis result registered by the wrapper.
                     waitForQualityGate abortPipeline: true
                 }
             }
