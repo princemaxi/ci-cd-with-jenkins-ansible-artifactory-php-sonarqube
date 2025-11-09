@@ -47,10 +47,10 @@ pipeline {
                         set -e
                         rm -rf dist || true
                         mkdir -p dist
-                        
+
                         # Use rsync to copy app files from root (.) to dist/, excluding .git
                         rsync -av --progress . dist/ --exclude .git
-                        
+
                         # Creates the tarball for upload
                         tar -czf ../todo-app-${GIT_COMMIT}-${BUILD_NUMBER}.tar.gz -C dist .
                     '''
@@ -69,10 +69,6 @@ pipeline {
             }
             steps {
                 dir('todo-app') {
-                    // --- FIX ---
-                    // Added your debug commands (pwd, ls -la)
-                    // Kept the robust /opt/sonar-scanner path
-                    // Kept the secure $SONAR_HOST and $SONAR_TOKEN variables
                     sh '''
                         echo "--- Running SonarQube Analysis ---"
                         echo "Current directory:"
@@ -100,10 +96,12 @@ pipeline {
                         # Sets the path using your correct repository 'php-todo-repo'
                         ART_PATH="php-todo-repo/todo-app/${GIT_COMMIT}/${BUILD_NUMBER}/todo-app-${GIT_COMMIT}-${BUILD_NUMBER}.tar.gz"
 
+                        # *** FIX: Escaped \$ART_PATH ***
                         # Uploads the file using your cloud URL and credentials
-                        curl -u ${ART_USER}:${ART_PASS} -T todo-app-${GIT_COMMIT}-${BUILD_NUMBER}.tar.gz "${ARTIFACTORY_HOST}/artifactory/${ART_PATH}"
+                        curl -u ${ART_USER}:${ART_PASS} -T todo-app-${GIT_COMMIT}-${BUILD_NUMBER}.tar.gz "${ARTIFACTORY_HOST}/artifactory/\${ART_PATH}"
 
-                        echo "ARTIFACT_PATH=${ARTIFACTORY_HOST}/artifactory/${ART_PATH}" > artifact-info.txt
+                        # *** FIX: Escaped \$ART_PATH ***
+                        echo "ARTIFACT_PATH=${ARTIFACTORY_HOST}/artifactory/\${ART_PATH}" > artifact-info.txt
                     """
                 }
                 archiveArtifacts artifacts: 'artifact-info.txt'
