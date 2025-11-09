@@ -71,10 +71,10 @@ pipeline {
             }
             steps {
                 // FIX: Use this wrapper instead of the 'tools' block to set up the scanner
-                withSonarQubeEnv('sonarqube-server') {
-                    withEnv(["SONAR_LOGIN=${SONAR_TOKEN}", "SONAR_HOST=${SONAR_HOST}"]) {
+                withSonarQubeEnv('SonarQubeScanner') {
+               
                         dir('todo-app') {
-                            sh """
+                            sh '''
                                 sonar-scanner \
                                   -Dsonar.projectKey=php-todo \
                                   -Dsonar.sources=. \
@@ -83,7 +83,7 @@ pipeline {
                             """
                         }
                     }
-                }
+                
             }
         }
 
@@ -117,7 +117,7 @@ pipeline {
                     """
                 }
                 archiveArtifacts artifacts: 'artifact-info.txt'
-            }
+            
         }
 
         stage('Deploy via Ansible') {
