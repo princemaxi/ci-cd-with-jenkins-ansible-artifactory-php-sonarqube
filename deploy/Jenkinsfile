@@ -46,7 +46,7 @@ pipeline {
                         set -e
                         rm -rf dist || true
                         mkdir -p dist
-                        cp -r src/* dist/
+                        rsync -av --progress . dist/ --exclude .git
                         # Creates the tarball for upload
                         tar -czf ../todo-app-${GIT_COMMIT}-${BUILD_NUMBER}.tar.gz -C dist .
                     '''
