@@ -79,7 +79,7 @@ pipeline {
                             # The 'sonar-scanner' command is now available without the /opt/ path.
                             # The wrapper automatically injects the SONAR_HOST and often the SONAR_TOKEN,
                             # but we leave them as D-properties for explicit control.
-                            sonar-scanner \
+                            /opt/sonar-scanner/bin/sonar-scanner \
                               -Dsonar.projectKey=php-todo \
                               -Dsonar.sources=. \
                               -Dsonar.host.url=$SONAR_HOST \
