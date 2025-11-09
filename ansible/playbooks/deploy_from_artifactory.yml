@@ -56,11 +56,12 @@
         state: link
         force: yes
 
-    - name: Set permissions
+    - name: Set permissions on release directory
       file:
-        path: "{{ current_link }}"
+        path: "/var/www/releases/{{ build_number }}"
         owner: nginx
         group: nginx
+        mode: '0755'
         recurse: yes
 
     - name: Restart nginx
