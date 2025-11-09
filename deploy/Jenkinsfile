@@ -83,6 +83,7 @@ pipeline {
                         /opt/sonar-scanner/bin/sonar-scanner \
                           -Dsonar.projectKey=php-todo \
                           -Dsonar.sources=. \
+                          -Dsonar.exclusions=dist/** \
                           -Dsonar.host.url=$SONAR_HOST \
                           -Dsonar.login=$SONAR_TOKEN
                     '''
