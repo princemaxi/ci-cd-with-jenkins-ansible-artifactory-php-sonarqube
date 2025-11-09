@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     parameters {
-        // FIX: Changed to HTTPS URL to work with your 'github-token' (username/password) credential
+        // Changed to HTTPS URL to work with 'github-token'
         string(name: 'APP_REPO', defaultValue: 'https://github.com/princemaxi/php-todo.git', description: 'App repo to build')
         string(name: 'APP_BRANCH', defaultValue: 'main', description: 'Branch to build')
         choice(name: 'inventory', choices: ['ci','dev','pentest'], description: 'Target inventory to use (folder under ansible/inventories)')
@@ -48,7 +48,7 @@ pipeline {
                         rm -rf dist || true
                         mkdir -p dist
                         
-                        # FIX: Use rsync to copy app files from root (.) to dist/, excluding .git
+                        # Use rsync to copy app files from root (.) to dist/, excluding .git
                         rsync -av --progress . dist/ --exclude .git
                         
                         # Creates the tarball for upload
@@ -70,20 +70,23 @@ pipeline {
                 }
             }
             steps {
-                // FIX: Use this wrapper instead of the 'tools' block to set up the scanner
+                // --- THIS IS THE FIX ---
+                // This wrapper finds the tool named 'SonarQubeScanner'
+                // and adds its 'bin' directory to the PATH.
                 withSonarQubeEnv('SonarQubeScanner') {
-               
-                        dir('todo-app') {
-                            sh '''
-                                sonar-scanner \
-                                  -Dsonar.projectKey=php-todo \
-                                  -Dsonar.sources=. \
-                                  -Dsonar.host.url=${SONAR_HOST} \
-                                  -Dsonar.login=${SONAR_LOGIN}
-                            """
-                        }
+                    dir('todo-app') {
+                        // 1. Use single-quotes '...' for security.
+                        // 2. Use shell variables ($VARNAME) for the scanner.
+                        // 3. Removed the unnecessary nested 'withEnv' wrapper.
+                        sh '''
+                            sonar-scanner \
+                              -Dsonar.projectKey=php-todo \
+                              -Dsonar.sources=. \
+                              -Dsonar.host.url=$SONAR_HOST \
+                              -Dsonar.login=$SONAR_TOKEN
+                        '''
                     }
-                
+                }
             }
         }
 
@@ -117,7 +120,7 @@ pipeline {
                     """
                 }
                 archiveArtifacts artifacts: 'artifact-info.txt'
-            
+            }
         }
 
         stage('Deploy via Ansible') {
@@ -127,7 +130,7 @@ pipeline {
                     sh """
                         export ANSIBLE_CONFIG=${WORKSPACE}/ansible/ansible.cfg
 
-                        # FIX: Removed '-u' so Ansible uses the user defined in your inventory files
+                        # Removed '-u' so Ansible uses the user defined in your inventory files
                         ansible-playbook -i ansible/inventories/${inventory}/hosts.ini ansible/playbooks/deploy_from_artifactory.yml \
                           --private-key=${ANSIBLE_KEY} \
                           --extra-vars "build_number=${BUILD_NUMBER} commit_hash=${GIT_COMMIT} target_group=todo" \
