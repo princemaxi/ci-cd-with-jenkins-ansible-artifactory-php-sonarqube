@@ -20,12 +20,13 @@
 
     - name: Download artifact from Artifactory
       get_url:
-        url: "{{ artifact_path }}"
-        dest: "/tmp/{{ app_group }}-{{ build_number }}.tar.gz"
+        url: "{{ artifactory_base }}/todo-app/{{ commit_hash }}/{{ build_number }}/todo-app-{{ commit_hash }}-{{ build_number }}.tar.gz"
+        dest: "/tmp/todo-app-{{ build_number }}.tar.gz"
         timeout: 60
         url_username: "{{ artifactory_user }}"   # Pass this from Jenkins
         url_password: "{{ artifactory_pass }}" # Pass this from Jenkins
-        force_basic_auth: yes
+        force: yes
+        mode: '0644'
         validate_certs: no
       register: download_result
 
