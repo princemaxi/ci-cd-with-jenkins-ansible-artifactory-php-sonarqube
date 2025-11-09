@@ -115,7 +115,7 @@ pipeline {
             steps {
                 // Securely loads your 'ansible-ssh' private key
                 withCredentials([sshUserPrivateKey(credentialsId: 'ansible-ssh', keyFileVariable: 'ANSIBLE_KEY')]) {
-                    sh """
+                    sh '''
                         export ANSIBLE_CONFIG=${WORKSPACE}/ansible/ansible.cfg
 
                         # Removed '-u' so Ansible uses the user defined in your inventory files
