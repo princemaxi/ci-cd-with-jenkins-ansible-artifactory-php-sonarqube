@@ -2,6 +2,7 @@ pipeline {
     agent any
 
     parameters {
+        // FIX: Changed to HTTPS URL to work with your 'github-token' (username/password) credential
         string(name: 'APP_REPO', defaultValue: 'https://github.com/princemaxi/php-todo.git', description: 'App repo to build')
         string(name: 'APP_BRANCH', defaultValue: 'main', description: 'Branch to build')
         choice(name: 'inventory', choices: ['ci','dev','pentest'], description: 'Target inventory to use (folder under ansible/inventories)')
@@ -46,7 +47,10 @@ pipeline {
                         set -e
                         rm -rf dist || true
                         mkdir -p dist
+                        
+                        # FIX: Use rsync to copy app files from root (.) to dist/, excluding .git
                         rsync -av --progress . dist/ --exclude .git
+                        
                         # Creates the tarball for upload
                         tar -czf ../todo-app-${GIT_COMMIT}-${BUILD_NUMBER}.tar.gz -C dist .
                     '''
@@ -57,7 +61,6 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-            // Only run on important branches
             when {
                 anyOf {
                     branch 'main'
@@ -66,24 +69,19 @@ pipeline {
                     branch pattern: '^hotfix.*', comparator: 'REGEXP'
                 }
             }
-
-            // This tells Jenkins to add the "SonarQubeScanner" tool
-            // (which you configured to install automatically) to the PATH.
-            tools {
-                hudson.plugins.sonar.SonarRunnerInstallation 'SonarQubeScanner'
-            }
-
             steps {
-                withEnv(["SONAR_LOGIN=${SONAR_TOKEN}", "SONAR_HOST=${SONAR_HOST}"]) {
-                    dir('todo-app') {
-                        sh """
-                            # This assumes 'sonar-scanner' is installed on the Jenkins agent
-                            sonar-scanner \
-                              -Dsonar.projectKey=php-todo \
-                              -Dsonar.sources=. \
-                              -Dsonar.host.url=${SONAR_HOST} \
-                              -Dsonar.login=${SONAR_LOGIN}
-                        """
+                // FIX: Use this wrapper instead of the 'tools' block to set up the scanner
+                withSonarQubeEnv('sonarqube-server') {
+                    withEnv(["SONAR_LOGIN=${SONAR_TOKEN}", "SONAR_HOST=${SONAR_HOST}"]) {
+                        dir('todo-app') {
+                            sh """
+                                sonar-scanner \
+                                  -Dsonar.projectKey=php-todo \
+                                  -Dsonar.sources=. \
+                                  -Dsonar.host.url=${SONAR_HOST} \
+                                  -Dsonar.login=${SONAR_LOGIN}
+                            """
+                        }
                     }
                 }
             }
@@ -107,15 +105,14 @@ pipeline {
         stage('Upload artifact to Artifactory') {
             steps {
                 // Securely loads your 'artifactory-token'
-                // This assumes it's a "Username with password" credential type
                 withCredentials([usernamePassword(credentialsId: 'artifactory-token', usernameVariable: 'ART_USER', passwordVariable: 'ART_PASS')]) {
                     sh """
                         # Sets the path using your correct repository 'php-todo-repo'
                         ART_PATH="php-todo-repo/todo-app/${GIT_COMMIT}/${BUILD_NUMBER}/todo-app-${GIT_COMMIT}-${BUILD_NUMBER}.tar.gz"
-                        
+
                         # Uploads the file using your cloud URL and credentials
                         curl -u ${ART_USER}:${ART_PASS} -T todo-app-${GIT_COMMIT}-${BUILD_NUMBER}.tar.gz "${ARTIFACTORY_HOST}/artifactory/${ART_PATH}"
-                        
+
                         echo "ARTIFACT_PATH=${ARTIFACTORY_HOST}/artifactory/${ART_PATH}" > artifact-info.txt
                     """
                 }
@@ -129,8 +126,8 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'ansible-ssh', keyFileVariable: 'ANSIBLE_KEY')]) {
                     sh """
                         export ANSIBLE_CONFIG=${WORKSPACE}/ansible/ansible.cfg
-                        
-                        # This command runs your Ansible playbook
+
+                        # FIX: Removed '-u' so Ansible uses the user defined in your inventory files
                         ansible-playbook -i ansible/inventories/${inventory}/hosts.ini ansible/playbooks/deploy_from_artifactory.yml \
                           --private-key=${ANSIBLE_KEY} \
                           --extra-vars "build_number=${BUILD_NUMBER} commit_hash=${GIT_COMMIT} target_group=todo" \
@@ -142,9 +139,7 @@ pipeline {
     }
 
     post {
-        // This will always run, whether the pipeline succeeds or fails
         always {
-            // Cleans up the workspace for the next build
             cleanWs()
         }
     }
