@@ -24,7 +24,7 @@
         dest: "/tmp/{{ app_group }}-{{ build_number }}.tar.gz"
         timeout: 60
         url_username: "{{ artifactory_user }}"   # Pass this from Jenkins
-        url_password: "{{ artifactory_apikey }}" # Pass this from Jenkins
+        url_password: "{{ artifactory_pass }}" # Pass this from Jenkins
         force_basic_auth: yes
         validate_certs: no
       register: download_result
