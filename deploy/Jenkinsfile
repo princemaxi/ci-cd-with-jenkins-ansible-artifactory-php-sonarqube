@@ -123,6 +123,7 @@ pipeline {
                           --private-key=${ANSIBLE_KEY} \
                           --extra-vars "build_number=${BUILD_NUMBER} commit_hash=${GIT_COMMIT} target_group=todo" \
                           --extra-vars "artifactory_base=${ARTIFACTORY_HOST}/artifactory/php-todo-repo"
+                          --extra-vars "artifactory_user=${ART_USER} artifactory_pass=${ART_PASS}"
                     '''
                 }
             }
