@@ -80,6 +80,9 @@ pipeline {
                           -Dsonar.projectKey=php-todo \
                           -Dsonar.sources=. \
                           -Dsonar.exclusions=dist/** \
+                          -Dsonar.javascript.exclusions=**/* \
+                          -Dsonar.css.exclusions=**/* \
+                          -Dsonar.typescript.exclusions=**/* \
                           -Dsonar.host.url=$SONAR_HOST \
                           -Dsonar.login=$SONAR_TOKEN
                     '''
