@@ -14,8 +14,8 @@
       file:
         path: "{{ release_dir }}"
         state: directory
-        owner: www-data
-        group: www-data
+        owner: nginx
+        group: nginx
         mode: '0755'
 
     - name: Download artifact from Artifactory
@@ -50,8 +50,8 @@
     - name: Set permissions
       file:
         path: "{{ current_link }}"
-        owner: www-data
-        group: www-data
+        owner: nginx
+        group: nginx
         recurse: yes
 
     - name: Restart nginx
