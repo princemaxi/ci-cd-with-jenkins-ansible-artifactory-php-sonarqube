@@ -113,8 +113,11 @@ pipeline {
 
         stage('Deploy via Ansible') {
             steps {
-                // Securely loads your 'ansible-ssh' private key
-                withCredentials([sshUserPrivateKey(credentialsId: 'ansible-ssh', keyFileVariable: 'ANSIBLE_KEY')]) {
+                // *** FIX: Added 'artifactory-token' to load ART_USER and ART_PASS ***
+                withCredentials([
+                    sshUserPrivateKey(credentialsId: 'ansible-ssh', keyFileVariable: 'ANSIBLE_KEY'),
+                    usernamePassword(credentialsId: 'artifactory-token', usernameVariable: 'ART_USER', passwordVariable: 'ART_PASS')
+                ]) {
                     sh '''
                         export ANSIBLE_CONFIG=${WORKSPACE}/ansible/ansible.cfg
 
