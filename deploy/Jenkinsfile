@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     parameters {
-        string(name: 'APP_REPO', defaultValue: 'git@github.com:princemaxi/php-todo.git', description: 'App repo to build')
+        string(name: 'APP_REPO', defaultValue: 'https://github.com/princemaxi/php-todo.git', description: 'App repo to build')
         string(name: 'APP_BRANCH', defaultValue: 'main', description: 'Branch to build')
         choice(name: 'inventory', choices: ['ci','dev','pentest'], description: 'Target inventory to use (folder under ansible/inventories)')
         string(name: 'ansible_tags', defaultValue: '', description: 'Optional Ansible tags (comma separated)')
