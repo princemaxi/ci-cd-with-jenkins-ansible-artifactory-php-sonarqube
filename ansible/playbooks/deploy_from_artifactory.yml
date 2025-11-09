@@ -35,6 +35,14 @@
         msg: "Artifact download failed: {{ artifact_path }}"
       when: download_result is failed
 
+    - name: Create build-specific release directory
+      file:
+        path: "/var/www/releases/{{ build_number }}"
+        state: directory
+        owner: nginx
+        group: nginx
+        mode: '0755'
+
     - name: Extract artifact to release dir
       unarchive:
         src: "/tmp/{{ app_group }}-{{ build_number }}.tar.gz"
