@@ -66,6 +66,13 @@ pipeline {
                     branch pattern: '^hotfix.*', comparator: 'REGEXP'
                 }
             }
+
+            // This tells Jenkins to add the "SonarQubeScanner" tool
+            // (which you configured to install automatically) to the PATH.
+            tools {
+                hudson.plugins.sonar.SonarRunnerInstallation 'SonarQubeScanner'
+            }
+
             steps {
                 withEnv(["SONAR_LOGIN=${SONAR_TOKEN}", "SONAR_HOST=${SONAR_HOST}"]) {
                     dir('todo-app') {
@@ -73,7 +80,7 @@ pipeline {
                             # This assumes 'sonar-scanner' is installed on the Jenkins agent
                             sonar-scanner \
                               -Dsonar.projectKey=php-todo \
-                              -Dsonar.sources=src \
+                              -Dsonar.sources=. \
                               -Dsonar.host.url=${SONAR_HOST} \
                               -Dsonar.login=${SONAR_LOGIN}
                         """
